@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>5×5 Matrix 3D Visualization with D3.js</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        #info-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 8px;
+            z-index: 1000;
+            max-width: 300px;
+        }
+        .bar-label {
+            font-weight: bold;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+
+    <a-scene>
+        <!-- Camera with orbit controls -->
+        <a-entity camera look-controls position="0 5 10">
+            <a-cursor></a-cursor>
+        </a-entity>
+        
+        <!-- Lighting -->
+        <a-entity light="type: ambient; intensity: 0.4"></a-entity>
+        <a-entity light="type: directional; intensity: 0.8" position="1 1 1"></a-entity>
+        
+        <!-- Grid floor -->
+        <a-grid position="0 0 0" width="10" height="10" color="#CCC"></a-grid>
+        
+        <!-- Matrix container -->
+        <a-entity id="matrix-container" position="-2 0 -2">
+            <script>
+                // Sample JSON dataset
+                const jsonData = {
+                    "dataset": "matrix_5x5",
+                    "values": [
+                        {"row": 0, "col": 0, "value": 5},
+                        {"row": 0, "col": 1, "value": 3},
+                        {"row": 0, "col": 2, "value": 8},
+                        {"row": 0, "col": 3, "value": 2},
+                        {"row": 0, "col": 4, "value": 6},
+                        {"row": 1, "col": 0, "value": 4},
+                        {"row": 1, "col": 1, "value": 7},
+                        {"row": 1, "col": 2, "value": 1},
+                        {"row": 1, "col": 3, "value": 9},
+                        {"row": 1, "col": 4, "value": 5},
+                        {"row": 2, "col": 0, "value": 2},
+                        {"row": 2, "col": 1, "value": 8},
+                        {"row": 2, "col": 2, "value": 4},
+                        {"row": 2, "col": 3, "value": 6},
+                        {"row": 2, "col": 4, "value": 3},
+                        {"row": 3, "col": 0, "value": 7},
+                        {"row": 3, "col": 1, "value": 2},
+                        {"row": 3, "col": 2, "value": 9},
+                        {"row": 3, "col": 3, "value": 5},
+                        {"row": 3, "col": 4, "value": 1},
+                        {"row": 4, "col": 0, "value": 4},
+                        {"row": 4, "col": 1, "value": 6},
+                        {"row": 4, "col": 2, "value": 3},
+                        {"row": 4, "col": 3, "value": 8},
+                        {"row": 4, "col": 4, "value": 2}
+                    ]
+                };
+
+                // Use D3.js to process the data
+                const processedData = d3.rollup(
+                    jsonData.values,
+                    v => v[0].value, // Extract the value
+                    d => d.row,       // Group by row
+                    d => d.col        // Then by column
+                );
+
+                // Convert to 5x5 matrix array
+                const matrix = Array.from({length: 5}, (_, i) => 
+                    Array.from({length: 5}, (_, j) => processedData.get(i)?.get(j) || 0)
+                );
+
+                // Calculate max value for normalization
+                const maxValue = d3.max(matrix.flat());
+
+                // Create color scale
+                const colorScale = d3.scaleSequential(d3.interpolatePlasma)
+                    .domain([0, maxValue]);
+
+                // Create bars for each matrix element
+                matrix.forEach((row, rowIndex) => {
+                    row.forEach((value, colIndex) => {
+                        const height = (value / maxValue) * 4;
+                        const color = colorScale(value);
+                        
+                        // Create bar
+                        const bar = document.createElement('a-box');
+                        bar.setAttribute('position', colIndex + ' ' + (height / 2) + ' ' + rowIndex);
+
+                        bar.setAttribute('width', '0.8');
+                        bar.setAttribute('height', height);
+                        bar.setAttribute('depth', '0.8');
+                        bar.setAttribute('color', color);
+                        bar.setAttribute('shadow', 'cast: true; receive: true');
+                        bar.setAttribute('data-value', value);
+                        bar.setAttribute('data-row', rowIndex);
+                        bar.setAttribute('data-col', colIndex);
+                        
+                        // Add hover interaction
+                        bar.addEventListener('mouseenter', function() {
+                            document.getElementById('data-info').textContent = 
+                           "Row " + (rowIndex + 1) + ", col " + (colIndex + 1) + ", Value = " + value + ";"
+                            this.setAttribute('scale', '1.1 1.1 1.1');
+                        });
+                        
+                        bar.addEventListener('mouseleave', function() {
+                            this.setAttribute('scale', '1 1 1');
+                        });
+                        
+                        // Add value label
+                        const label = document.createElement('a-text');
+                        label.setAttribute('class', 'bar-label');
+                        label.setAttribute('value', value);
+                        label.setAttribute('position', colIndex + ' ' + (height + 0.2) + ' ' + rowIndex);
+                        label.setAttribute('align', 'center');
+                        label.setAttribute('color', '#000');
+                        label.setAttribute('scale', '0.8 0.8 0.8');
+                        
+                        // Add to scene
+                        document.querySelector('#matrix-container').appendChild(bar);
+                        document.querySelector('#matrix-container').appendChild(label);
+                    });
+                });
+                
+                // Add axis labels
+                const xAxis = document.createElement('a-text');
+                xAxis.setAttribute('value', 'Columns →');
+                xAxis.setAttribute('position', '2 0 -0.5');
+                xAxis.setAttribute('align', 'center');
+                xAxis.setAttribute('color', '#000');
+                
+                const yAxis = document.createElement('a-text');
+                yAxis.setAttribute('value', '↑ Rows');
+                yAxis.setAttribute('position', '-0.5 0 2');
+                yAxis.setAttribute('rotation', '0 -90 0');
+                yAxis.setAttribute('align', 'center');
+                yAxis.setAttribute('color', '#000');
+                
+                document.querySelector('#matrix-container').appendChild(xAxis);
+                document.querySelector('#matrix-container').appendChild(yAxis);
+            </script>
+        </a-entity>
+    </a-scene>
+</body>
+</html>
